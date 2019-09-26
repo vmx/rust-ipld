@@ -1,0 +1,10 @@
+[package]
+name = "rust-ipld-dag-cbor"
+version = "0.1.0"
+authors = ["Volker Mische <volker.mische@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+serde_cbor = { git = "https://github.com/vmx/cbor", branch="tagstruct", features = ["tags"]}
+serde = { version = "1.0.101", features = ["derive"] }
+serde_bytes = "0.11.2"
