@@ -1,13 +1,13 @@
+use std::collections::BTreeMap;
+use std::fmt;
+
 use serde::de;
 use serde::ser;
 use serde::{Deserialize, Serialize};
-
 use serde_bytes;
+use serde_cbor::tags::{current_cbor_tag, Tagged};
 
-use serde_cbor;
-
-use std::collections::BTreeMap;
-use std::fmt;
+const CBOR_TAG_CID: u64 = 42;
 
 #[derive(Debug, PartialEq)]
 struct Cid(Vec<u8>);
@@ -17,48 +17,8 @@ impl ser::Serialize for Cid {
     where
         S: ser::Serializer,
     {
-        let tag = 42u64;
-        let value = serde_bytes::ByteBuf::from(&self.0[..]);
-        s.serialize_newtype_struct(serde_cbor::CBOR_TAG_STRUCT_NAME, &(tag, value))
-    }
-}
-
-struct CidVisitor;
-
-impl<'de> de::Visitor<'de> for CidVisitor {
-    type Value = Cid;
-
-    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "a sequence of tag and value")
-    }
-
-    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        deserializer.deserialize_tuple(2, self)
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: de::SeqAccess<'de>,
-    {
-        let tag: u64 = seq
-            .next_element()?
-            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let value: serde_cbor::Value = seq
-            .next_element()?
-            .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-
-        match (tag, value) {
-            // Only return the value if tag and value type match
-            (42, serde_cbor::Value::Bytes(bytes)) => Ok(Cid(bytes)),
-            _ => {
-                let error = format!("tag: {:?}", tag);
-                let unexpected = de::Unexpected::Other(&error);
-                Err(de::Error::invalid_value(unexpected, &self))
-            }
-        }
+        let value = serde_bytes::Bytes::new(&self.0);
+        Tagged::new(Some(CBOR_TAG_CID), &value).serialize(s)
     }
 }
 
@@ -67,8 +27,9 @@ impl<'de> de::Deserialize<'de> for Cid {
     where
         D: de::Deserializer<'de>,
     {
-        let visitor = CidVisitor;
-        deserializer.deserialize_newtype_struct(serde_cbor::CBOR_TAG_STRUCT_NAME, visitor)
+        Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?
+            .unwrap_if_tag::<D>(CBOR_TAG_CID)
+            .map(|cid| Cid(cid.to_vec()))
     }
 }
 
@@ -214,41 +175,17 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
     where
         D: de::Deserializer<'de>,
     {
-        struct TagValueVisitor;
-        impl<'de> de::Visitor<'de> for TagValueVisitor {
-            type Value = Ipld;
-
-            fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-                fmt.write_str("any valid CBOR tag dklsfjskldjf")
+        match current_cbor_tag() {
+            Some(42) => {
+                let link = match Ipld::deserialize(deserializer) {
+                    Ok(Ipld::Bytes(link)) => link,
+                    _ => return Err(de::Error::custom("bytes expected")),
+                };
+                Ok(Ipld::Link(link))
             }
-
-            #[inline]
-            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-            where
-                V: de::SeqAccess<'de>,
-            {
-                let tag: u64 = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let value: Ipld = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                match tag {
-                    // It's a link
-                    42 => match value {
-                        Ipld::Bytes(data) => Ok(Ipld::Link(data)),
-                        _ => Err(de::Error::custom(format!(
-                            "Expected Bytes, found {:?}.",
-                            value
-                        ))),
-                    },
-                    // It's some other tag, so just return its value
-                    _ => Ok(value),
-                }
-            }
+            Some(tag) => Err(de::Error::custom(format!("unexpected tag ({})", tag))),
+            _ => Err(de::Error::custom("tag expected")),
         }
-
-        deserializer.deserialize_tuple(2, TagValueVisitor)
     }
 }
 
@@ -275,7 +212,7 @@ fn main() {
     };
     println!("Contact: {:?}", contact);
     let contact_encoded = serde_cbor::to_vec(&contact).unwrap();
-    println!("Encoded contact: {:?}", contact_encoded);
+    println!("Encoded contact: {:02x?}", contact_encoded);
     let contact_decoded_to_struct: Contact = serde_cbor::from_slice(&contact_encoded).unwrap();
     println!(
         "Decoded contact to original struct: {:?}",
