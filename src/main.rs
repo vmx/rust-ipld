@@ -27,9 +27,11 @@ impl<'de> de::Deserialize<'de> for Cid {
     where
         D: de::Deserializer<'de>,
     {
-        Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?
-            .unwrap_if_tag::<D>(CBOR_TAG_CID)
-            .map(|cid| Cid(cid.to_vec()))
+        let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
+        match tagged.tag {
+            Some(CBOR_TAG_CID) | None => Ok(Cid(tagged.value.to_vec())),
+            Some(_) => Err(de::Error::custom("unexpected tag")),
+        }
     }
 }
 
