@@ -3,14 +3,14 @@ use std::fmt;
 
 use serde::de;
 use serde::ser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_bytes;
 use serde_cbor::tags::{current_cbor_tag, Tagged};
 
 const CBOR_TAG_CID: u64 = 42;
 
 #[derive(Debug, PartialEq)]
-struct Cid(Vec<u8>);
+pub struct Cid(pub Vec<u8>);
 
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -35,7 +35,7 @@ impl<'de> de::Deserialize<'de> for Cid {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Ipld {
     Null,
     Bool(bool),
@@ -199,27 +199,4 @@ impl<'de> de::Deserialize<'de> for Ipld {
     {
         deserializer.deserialize_any(IpldVisitor)
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Contact {
-    name: String,
-    details: Cid,
-}
-
-fn main() {
-    let contact = Contact {
-        name: "Hello World!".to_string(),
-        details: Cid(vec![7, 8, 9]),
-    };
-    println!("Contact: {:?}", contact);
-    let contact_encoded = serde_cbor::to_vec(&contact).unwrap();
-    println!("Encoded contact: {:02x?}", contact_encoded);
-    let contact_decoded_to_struct: Contact = serde_cbor::from_slice(&contact_encoded).unwrap();
-    println!(
-        "Decoded contact to original struct: {:?}",
-        contact_decoded_to_struct
-    );
-    let contact_decoded_to_ipld: Ipld = serde_cbor::from_slice(&contact_encoded).unwrap();
-    println!("Decoded contact to IPLD: {:?}", contact_decoded_to_ipld);
 }
