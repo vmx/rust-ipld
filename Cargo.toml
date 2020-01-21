@@ -1,5 +1,5 @@
 [package]
-name = "rust-ipld-dag-cbor"
+name = "ipld-dag-cbor"
 version = "0.1.0"
 authors = ["Volker Mische <volker.mische@gmail.com>"]
 edition = "2018"
