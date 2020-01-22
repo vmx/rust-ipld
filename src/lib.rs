@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::de;
-use serde::ser;
-use serde::Deserialize;
+use serde::{de, ser, Deserialize};
 use serde_bytes;
 use serde_cbor::tags::{current_cbor_tag, Tagged};
 
