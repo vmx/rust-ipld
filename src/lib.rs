@@ -7,30 +7,12 @@ use serde_cbor::tags::{current_cbor_tag, Tagged};
 
 const CBOR_TAG_CID: u64 = 42;
 
-#[derive(Debug, PartialEq)]
-pub struct Cid(pub Vec<u8>);
-
-impl ser::Serialize for Cid {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        let value = serde_bytes::Bytes::new(&self.0);
-        Tagged::new(Some(CBOR_TAG_CID), &value).serialize(s)
-    }
+pub fn encode(ipld: &Ipld) -> Result<Vec<u8>, serde_cbor::Error> {
+    serde_cbor::to_vec(&ipld)
 }
 
-impl<'de> de::Deserialize<'de> for Cid {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
-        match tagged.tag {
-            Some(CBOR_TAG_CID) | None => Ok(Cid(tagged.value.to_vec())),
-            Some(_) => Err(de::Error::custom("unexpected tag")),
-        }
-    }
+pub fn decode(data: &[u8]) -> Result<Ipld, serde_cbor::Error> {
+    serde_cbor::from_slice(&data)
 }
 
 struct IpldVisitor;
@@ -163,7 +145,7 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
         D: de::Deserializer<'de>,
     {
         match current_cbor_tag() {
-            Some(42) => {
+            Some(CBOR_TAG_CID) => {
                 let link = match Ipld::deserialize(deserializer) {
                     Ok(Ipld::Bytes(link)) => link,
                     _ => return Err(de::Error::custom("bytes expected")),
@@ -187,6 +169,28 @@ pub enum Ipld {
     List(Vec<Ipld>),
     Map(BTreeMap<String, Ipld>),
     Link(Vec<u8>),
+}
+
+impl ser::Serialize for Ipld {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        match &self {
+            Ipld::Null => ser.serialize_none(),
+            Ipld::Bool(bool) => ser.serialize_bool(*bool),
+            Ipld::Integer(i128) => ser.serialize_i128(*i128),
+            Ipld::Float(f64) => ser.serialize_f64(*f64),
+            Ipld::String(string) => ser.serialize_str(string),
+            Ipld::Bytes(bytes) => ser.serialize_bytes(bytes),
+            Ipld::List(list) => ser.collect_seq(list),
+            Ipld::Map(map) => ser.collect_map(map),
+            Ipld::Link(link) => {
+                let value = serde_bytes::Bytes::new(&link);
+                Tagged::new(Some(CBOR_TAG_CID), &value).serialize(ser)
+            }
+        }
+    }
 }
 
 impl<'de> de::Deserialize<'de> for Ipld {
