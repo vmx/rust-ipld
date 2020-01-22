@@ -35,19 +35,6 @@ impl<'de> de::Deserialize<'de> for Cid {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Ipld {
-    Null,
-    Bool(bool),
-    Integer(i128),
-    Float(f64),
-    String(String),
-    Bytes(Vec<u8>),
-    List(Vec<Ipld>),
-    Map(BTreeMap<String, Ipld>),
-    Link(Vec<u8>),
-}
-
 struct IpldVisitor;
 
 impl<'de> de::Visitor<'de> for IpldVisitor {
@@ -189,6 +176,19 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
             _ => Err(de::Error::custom("tag expected")),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Ipld {
+    Null,
+    Bool(bool),
+    Integer(i128),
+    Float(f64),
+    String(String),
+    Bytes(Vec<u8>),
+    List(Vec<Ipld>),
+    Map(BTreeMap<String, Ipld>),
+    Link(Vec<u8>),
 }
 
 impl<'de> de::Deserialize<'de> for Ipld {
