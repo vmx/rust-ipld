@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use ipld_dag_cbor::{self, Ipld};
+use ipld_core::Ipld;
+use ipld_dag_cbor;
 
 #[test]
 fn encode_struct() {
