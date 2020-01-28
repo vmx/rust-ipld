@@ -24,6 +24,6 @@ fn encode_struct() {
     r#"{"details":{"/":"BwgJ"},"name":"Hello World!"}"#
   );
 
-  // let contact_decoded: Ipld = ipld_dag_json::decode(&contact_encoded).unwrap();
-  // assert_eq!(contact_decoded, contact);
+  let contact_decoded: Ipld = ipld_dag_json::decode(&contact_encoded).unwrap();
+  assert_eq!(contact_decoded, contact);
 }
