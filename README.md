@@ -1,7 +1,7 @@
 IPLD
 ====
 
-This is an implementation of [IPLD].
+**This is a dead prototype**. Future development will happen at https://github.com/ipfs-rust/rust-ipld.
 
 
 License
